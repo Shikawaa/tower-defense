@@ -85,7 +85,7 @@ const GameCanvas = () => {
         this.currentPathIndex = 0;
         this.x = path[0].x * 100;
         this.y = path[0].y * 100;
-        this.speed = 2;
+        this.speed = 1;
         this.health = 100;
         this.maxHealth = 100;
       }

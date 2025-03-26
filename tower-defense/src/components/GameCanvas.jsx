@@ -93,7 +93,7 @@ const GameCanvas = ({ onGameOver }) => {
   }
 
   class Projectile {
-    constructor(x, y, target, damage, speed = 5) {
+    constructor(x, y, target, damage, speed = 8) {
       this.x = x
       this.y = y
       this.target = target
@@ -106,7 +106,7 @@ const GameCanvas = ({ onGameOver }) => {
       const dy = this.target.y - this.y
       const distance = Math.sqrt(dx * dx + dy * dy)
 
-      if (distance < this.speed) {
+      if (distance < 30) {
         return true
       }
 
@@ -125,6 +125,7 @@ const GameCanvas = ({ onGameOver }) => {
       this.stats = this.getStats()
       this.cooldown = 0
       this.projectiles = []
+      this.laserTarget = null
     }
 
     getStats() {
@@ -132,51 +133,40 @@ const GameCanvas = ({ onGameOver }) => {
         case 'shooter':
           return {
             damage: 20,
-            range: 300,
-            fireRate: 30,
+            range: 250,
+            fireRate: 20,
             cost: 50
           }
         case 'slow':
           return {
             damage: 0,
-            range: 240,
-            fireRate: 60,
+            range: 200,
+            fireRate: 30,
             slowAmount: 0.5,
             cost: 75
           }
-        case 'splash':
+        case 'bomb':
           return {
-            damage: 15,
-            range: 200,
-            fireRate: 45,
-            splashRadius: 60,
+            damage: 50,
+            range: 250,
+            fireRate: 60,
+            splashRadius: 100,
             cost: 100
+          }
+        case 'laser':
+          return {
+            damage: 2,
+            range: 350,
+            fireRate: 7,
+            cost: 125
           }
         default:
           return {
-            damage: 20,
+            damage: 15,
             range: 300,
-            fireRate: 30,
+            fireRate: 10,
             cost: 50
           }
-      }
-    }
-
-    shoot(enemies) {
-      if (this.cooldown > 0) {
-        this.cooldown--
-        return
-      }
-
-      const closestEnemy = this.findClosestEnemy(enemies)
-      if (closestEnemy) {
-        this.projectiles.push(new Projectile(
-          this.x + 50,
-          this.y + 50,
-          closestEnemy,
-          this.stats.damage
-        ))
-        this.cooldown = this.stats.fireRate
       }
     }
 
@@ -196,6 +186,41 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       return closest
+    }
+
+    shoot(enemies) {
+      if (this.cooldown > 0) {
+        this.cooldown--
+        return
+      }
+
+      if (this.type === 'laser') {
+        const target = this.findClosestEnemy(enemies)
+        if (target) {
+          this.laserTarget = target
+          target.health -= this.stats.damage
+          if (target.health <= 0) {
+            setGameState(prev => ({ ...prev, money: prev.money + 10 }))
+          }
+        } else {
+          this.laserTarget = null
+        }
+        return
+      }
+
+      const target = this.findClosestEnemy(enemies)
+      if (target) {
+        const startX = this.x + 50
+        const startY = this.y + 50
+        this.projectiles.push(new Projectile(
+          startX,
+          startY,
+          target,
+          this.stats.damage,
+          this.type === 'bomb' ? 5 : (this.type === 'shooter' ? 12 : 8)
+        ))
+        this.cooldown = this.stats.fireRate
+      }
     }
 
     applyEffect(enemy) {
@@ -249,8 +274,8 @@ const GameCanvas = ({ onGameOver }) => {
         tower.projectiles = tower.projectiles.filter(projectile => {
           const hit = projectile.move()
           if (hit) {
-            if (tower.type === 'splash') {
-              // Effet de splash
+            if (tower.type === 'bomb') {
+              // Effet de splash pour la tour bomb
               gameRef.current.enemies.forEach(enemy => {
                 const dx = enemy.x - projectile.target.x
                 const dy = enemy.y - projectile.target.y
@@ -263,10 +288,13 @@ const GameCanvas = ({ onGameOver }) => {
                 }
               })
             } else {
-              projectile.target.health -= projectile.damage
-              tower.applyEffect(projectile.target)
-              if (projectile.target.health <= 0) {
-                setGameState(prev => ({ ...prev, money: prev.money + 10 }))
+              // Vérifier si l'ennemi est toujours en vie avant d'appliquer les dégâts
+              if (projectile.target.health > 0) {
+                projectile.target.health -= projectile.damage
+                tower.applyEffect(projectile.target)
+                if (projectile.target.health <= 0) {
+                  setGameState(prev => ({ ...prev, money: prev.money + 10 }))
+                }
               }
             }
             return false
@@ -366,6 +394,17 @@ const GameCanvas = ({ onGameOver }) => {
           ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 20, 0, Math.PI * 2)
           ctx.fill()
         }
+
+        // Laser
+        if (tower.type === 'laser' && tower.laserTarget) {
+          ctx.strokeStyle = '#f43f5e'
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.moveTo(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2)
+          ctx.lineTo(tower.laserTarget.x + grid.cellSize / 2, tower.laserTarget.y + grid.cellSize / 2)
+          ctx.stroke()
+          ctx.lineWidth = 1
+        }
       })
 
       // HUD
@@ -446,10 +485,12 @@ const GameCanvas = ({ onGameOver }) => {
     switch (type) {
       case 'shooter':
         return '#3b82f6'
+      case 'bomb':
+        return '#f43f5e'
+      case 'laser':
+        return '#f43f5e'
       case 'slow':
         return '#8b5cf6'
-      case 'splash':
-        return '#f59e0b'
       default:
         return '#3b82f6'
     }
@@ -459,10 +500,12 @@ const GameCanvas = ({ onGameOver }) => {
     switch (type) {
       case 'shooter':
         return { name: 'Shooter Tower', cost: 50 }
+      case 'bomb':
+        return { name: 'Bomb Tower', cost: 100 }
+      case 'laser':
+        return { name: 'Laser Tower', cost: 125 }
       case 'slow':
         return { name: 'Slow Tower', cost: 75 }
-      case 'splash':
-        return { name: 'Splash Tower', cost: 100 }
       default:
         return { name: 'Shooter Tower', cost: 50 }
     }
@@ -546,15 +589,26 @@ const GameCanvas = ({ onGameOver }) => {
             Slow ($75)
           </button>
           <button
-            onClick={() => selectTowerType('splash')}
+            onClick={() => selectTowerType('bomb')}
             className={`px-4 py-2 rounded ${
-              gameState.selectedTowerType === 'splash'
-                ? 'bg-orange-600 text-white'
+              gameState.selectedTowerType === 'bomb'
+                ? 'bg-red-600 text-white'
                 : 'bg-slate-700 text-white hover:bg-slate-600'
             } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={gameState.isPaused}
           >
-            Splash ($100)
+            Bomb ($100)
+          </button>
+          <button
+            onClick={() => selectTowerType('laser')}
+            className={`px-4 py-2 rounded ${
+              gameState.selectedTowerType === 'laser'
+                ? 'bg-pink-600 text-white'
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={gameState.isPaused}
+          >
+            Laser ($125)
           </button>
         </div>
       </div>

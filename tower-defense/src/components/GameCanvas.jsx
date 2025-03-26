@@ -17,25 +17,38 @@ const GameCanvas = ({ onGameOver }) => {
   })
 
   class Grid {
-    constructor(width, height) {
+    constructor(width, height, cellSize) {
       this.width = width
       this.height = height
-      this.cellSize = 100
+      this.cellSize = cellSize
       this.path = this.createPath()
       this.buildableAreas = this.createBuildableAreas()
     }
 
     createPath() {
       const path = []
-      for (let i = 0; i < 8; i++) {
-        path.push({ x: i, y: 3 })
+      // Premier chemin (en haut)
+      for (let i = 0; i < 12; i++) {
+        path.push({ x: i, y: 2 })
       }
-      for (let i = 3; i < 6; i++) {
-        path.push({ x: 7, y: i })
+      for (let i = 2; i < 6; i++) {
+        path.push({ x: 11, y: i })
       }
-      for (let i = 7; i >= 0; i--) {
+      for (let i = 11; i >= 0; i--) {
         path.push({ x: i, y: 5 })
       }
+
+      // Deuxième chemin (en bas)
+      for (let i = 0; i < 12; i++) {
+        path.push({ x: i, y: 8 })
+      }
+      for (let i = 8; i < 12; i++) {
+        path.push({ x: 11, y: i })
+      }
+      for (let i = 11; i >= 0; i--) {
+        path.push({ x: i, y: 11 })
+      }
+
       return path
     }
 
@@ -57,11 +70,12 @@ const GameCanvas = ({ onGameOver }) => {
   }
 
   class Enemy {
-    constructor(path) {
+    constructor(path, cellSize, startIndex = 0) {
       this.path = path
-      this.currentPathIndex = 0
-      this.x = path[0].x * 100
-      this.y = path[0].y * 100
+      this.cellSize = cellSize
+      this.currentPathIndex = startIndex
+      this.x = path[startIndex].x * cellSize
+      this.y = path[startIndex].y * cellSize
       this.speed = 4
       this.health = 100
       this.maxHealth = 100
@@ -70,8 +84,8 @@ const GameCanvas = ({ onGameOver }) => {
 
     move() {
       const targetPoint = this.path[this.currentPathIndex]
-      const targetX = targetPoint.x * 100
-      const targetY = targetPoint.y * 100
+      const targetX = targetPoint.x * this.cellSize
+      const targetY = targetPoint.y * this.cellSize
 
       const dx = targetX - this.x
       const dy = targetY - this.y
@@ -236,12 +250,34 @@ const GameCanvas = ({ onGameOver }) => {
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    const grid = new Grid(8, 6)
+    
+    // Calculer la taille des cellules en fonction de la taille de l'écran
+    const calculateCellSize = () => {
+      const maxWidth = window.innerWidth - 200 // Réserver de l'espace pour les boutons
+      const maxHeight = window.innerHeight - 40 // Réserver de l'espace pour les marges
+      const cellSize = Math.min(
+        Math.floor(maxWidth / 12),
+        Math.floor(maxHeight / 12),
+        80, // Taille maximale des cellules
+        60  // Taille minimale des cellules
+      )
+      return cellSize
+    }
+
+    const cellSize = calculateCellSize()
+    const grid = new Grid(12, 12, cellSize)
+    
+    // Mettre à jour la taille du canvas
+    canvas.width = cellSize * 12
+    canvas.height = cellSize * 12
+
     let gameLoop
 
     const spawnEnemy = () => {
       if (!gameState.isPaused) {
-        gameRef.current.enemies.push(new Enemy(grid.path))
+        // Spawn aléatoire entre les deux chemins
+        const startIndex = Math.random() < 0.5 ? 0 : grid.path.length / 2
+        gameRef.current.enemies.push(new Enemy(grid.path, cellSize, startIndex))
       }
     }
 
@@ -314,29 +350,29 @@ const GameCanvas = ({ onGameOver }) => {
       ctx.strokeStyle = '#1e293b'
       for (let i = 0; i < grid.width; i++) {
         for (let j = 0; j < grid.height; j++) {
-          ctx.strokeRect(i * grid.cellSize, j * grid.cellSize, grid.cellSize, grid.cellSize)
+          ctx.strokeRect(i * cellSize, j * cellSize, cellSize, cellSize)
         }
       }
 
       // Dessiner le chemin
       ctx.strokeStyle = '#475569'
       ctx.beginPath()
-      ctx.moveTo(grid.path[0].x * grid.cellSize + grid.cellSize / 2, grid.path[0].y * grid.cellSize + grid.cellSize / 2)
+      ctx.moveTo(grid.path[0].x * cellSize + cellSize / 2, grid.path[0].y * cellSize + cellSize / 2)
       for (let i = 1; i < grid.path.length; i++) {
-        ctx.lineTo(grid.path[i].x * grid.cellSize + grid.cellSize / 2, grid.path[i].y * grid.cellSize + grid.cellSize / 2)
+        ctx.lineTo(grid.path[i].x * cellSize + cellSize / 2, grid.path[i].y * cellSize + cellSize / 2)
       }
       ctx.stroke()
 
       // Dessiner les zones constructibles
       grid.buildableAreas.forEach(area => {
         ctx.fillStyle = 'rgba(30, 41, 59, 0.2)'
-        ctx.fillRect(area.x * grid.cellSize, area.y * grid.cellSize, grid.cellSize, grid.cellSize)
+        ctx.fillRect(area.x * cellSize, area.y * cellSize, cellSize, cellSize)
       })
 
       // Effet de survol
       if (gameRef.current.hoveredCell && grid.isBuildable(gameRef.current.hoveredCell.x, gameRef.current.hoveredCell.y)) {
         ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
-        ctx.fillRect(gameRef.current.hoveredCell.x * grid.cellSize, gameRef.current.hoveredCell.y * grid.cellSize, grid.cellSize, grid.cellSize)
+        ctx.fillRect(gameRef.current.hoveredCell.x * cellSize, gameRef.current.hoveredCell.y * cellSize, cellSize, cellSize)
       }
 
       // Dessiner les projectiles
@@ -353,12 +389,12 @@ const GameCanvas = ({ onGameOver }) => {
       gameRef.current.enemies.forEach(enemy => {
         ctx.fillStyle = '#ef4444'
         ctx.beginPath()
-        ctx.arc(enemy.x + grid.cellSize / 2, enemy.y + grid.cellSize / 2, 30, 0, Math.PI * 2)
+        ctx.arc(enemy.x + cellSize / 2, enemy.y + cellSize / 2, 30, 0, Math.PI * 2)
         ctx.fill()
 
         // Barre de vie
         ctx.fillStyle = '#22c55e'
-        ctx.fillRect(enemy.x, enemy.y - 20, (enemy.health / enemy.maxHealth) * grid.cellSize, 10)
+        ctx.fillRect(enemy.x, enemy.y - 20, (enemy.health / enemy.maxHealth) * cellSize, 10)
       })
 
       // Dessiner les tours
@@ -366,32 +402,32 @@ const GameCanvas = ({ onGameOver }) => {
         // Zone d'effet
         ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)'
         ctx.beginPath()
-        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, tower.stats.range, 0, Math.PI * 2)
+        ctx.arc(tower.x + cellSize / 2, tower.y + cellSize / 2, tower.stats.range, 0, Math.PI * 2)
         ctx.stroke()
 
         // Base de la tour
         ctx.fillStyle = '#1e293b'
         ctx.beginPath()
-        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 45, 0, Math.PI * 2)
+        ctx.arc(tower.x + cellSize / 2, tower.y + cellSize / 2, 45, 0, Math.PI * 2)
         ctx.fill()
 
         // Corps de la tour
         ctx.fillStyle = getTowerColor(tower.type)
         ctx.beginPath()
-        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 35, 0, Math.PI * 2)
+        ctx.arc(tower.x + cellSize / 2, tower.y + cellSize / 2, 35, 0, Math.PI * 2)
         ctx.fill()
 
         // Sommet de la tour
         ctx.fillStyle = '#e2e8f0'
         ctx.beginPath()
-        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 15, 0, Math.PI * 2)
+        ctx.arc(tower.x + cellSize / 2, tower.y + cellSize / 2, 15, 0, Math.PI * 2)
         ctx.fill()
 
         // Effet de tir
         if (tower.cooldown === 0) {
           ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'
           ctx.beginPath()
-          ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 20, 0, Math.PI * 2)
+          ctx.arc(tower.x + cellSize / 2, tower.y + cellSize / 2, 20, 0, Math.PI * 2)
           ctx.fill()
         }
 
@@ -400,23 +436,12 @@ const GameCanvas = ({ onGameOver }) => {
           ctx.strokeStyle = '#f43f5e'
           ctx.lineWidth = 3
           ctx.beginPath()
-          ctx.moveTo(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2)
-          ctx.lineTo(tower.laserTarget.x + grid.cellSize / 2, tower.laserTarget.y + grid.cellSize / 2)
+          ctx.moveTo(tower.x + cellSize / 2, tower.y + cellSize / 2)
+          ctx.lineTo(tower.laserTarget.x + cellSize / 2, tower.laserTarget.y + cellSize / 2)
           ctx.stroke()
           ctx.lineWidth = 1
         }
       })
-
-      // HUD
-      ctx.fillStyle = '#e2e8f0'
-      ctx.font = '30px Orbitron'
-      ctx.fillText(`Money: $${gameState.money}`, 20, 40)
-      ctx.fillText(`Lives: ${gameState.lives}`, 20, 80)
-      ctx.fillText(`Wave: ${gameState.wave}`, 20, 120)
-      
-      // Info de la tour sélectionnée
-      const towerInfo = getTowerInfo(gameState.selectedTowerType)
-      ctx.fillText(`${towerInfo.name}: $${towerInfo.cost}`, 20, 160)
 
       // Texte de pause
       if (gameState.isPaused) {
@@ -442,8 +467,8 @@ const GameCanvas = ({ onGameOver }) => {
       const rect = canvas.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      const gridX = Math.floor(x / grid.cellSize)
-      const gridY = Math.floor(y / grid.cellSize)
+      const gridX = Math.floor(x / cellSize)
+      const gridY = Math.floor(y / cellSize)
       gameRef.current.hoveredCell = { x: gridX, y: gridY }
     }
 
@@ -453,19 +478,19 @@ const GameCanvas = ({ onGameOver }) => {
       const rect = canvas.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      const gridX = Math.floor(x / grid.cellSize)
-      const gridY = Math.floor(y / grid.cellSize)
+      const gridX = Math.floor(x / cellSize)
+      const gridY = Math.floor(y / cellSize)
 
       if (!grid.isBuildable(gridX, gridY)) return
 
       const towerExists = gameRef.current.towers.some(tower => 
-        tower.x === gridX * grid.cellSize && tower.y === gridY * grid.cellSize
+        tower.x === gridX * cellSize && tower.y === gridY * cellSize
       )
       if (towerExists) return
 
       const towerInfo = getTowerInfo(gameState.selectedTowerType)
       if (gameState.money >= towerInfo.cost) {
-        gameRef.current.towers.push(new Tower(gridX * grid.cellSize, gridY * grid.cellSize, gameState.selectedTowerType))
+        gameRef.current.towers.push(new Tower(gridX * cellSize, gridY * cellSize, gameState.selectedTowerType))
         setGameState(prev => ({ ...prev, money: prev.money - towerInfo.cost }))
       }
     }
@@ -474,10 +499,42 @@ const GameCanvas = ({ onGameOver }) => {
     canvas.addEventListener('click', handleClick)
     gameStep()
 
+    // Ajouter un gestionnaire de redimensionnement
+    const handleResize = () => {
+      const newCellSize = calculateCellSize()
+      if (newCellSize !== cellSize) {
+        // Mettre à jour la taille du canvas
+        canvas.width = newCellSize * 12
+        canvas.height = newCellSize * 12
+        
+        // Mettre à jour la position des ennemis existants
+        gameRef.current.enemies.forEach(enemy => {
+          const currentPoint = enemy.path[enemy.currentPathIndex]
+          enemy.cellSize = newCellSize
+          // Mettre à jour la position en fonction du nouveau cellSize
+          enemy.x = currentPoint.x * newCellSize
+          enemy.y = currentPoint.y * newCellSize
+        })
+
+        // Mettre à jour la position des tours
+        gameRef.current.towers.forEach(tower => {
+          const gridX = Math.floor(tower.x / cellSize)
+          const gridY = Math.floor(tower.y / cellSize)
+          tower.x = gridX * newCellSize
+          tower.y = gridY * newCellSize
+        })
+        
+        render()
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+
     return () => {
       cancelAnimationFrame(gameLoop)
       canvas.removeEventListener('mousemove', handleMouseMove)
       canvas.removeEventListener('click', handleClick)
+      window.removeEventListener('resize', handleResize)
     }
   }, [gameState, onGameOver])
 
@@ -538,14 +595,33 @@ const GameCanvas = ({ onGameOver }) => {
   }
 
   return (
-    <div className="relative">
-      <canvas
-        ref={canvasRef}
-        width={800}
-        height={600}
-        className="border-2 border-slate-700"
-      />
-      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-slate-800/80 p-4 rounded-lg">
+    <div className="flex justify-between items-start gap-4 p-4">
+      {/* Zone de texte à gauche */}
+      <div className="flex flex-col gap-2 bg-slate-800/80 p-4 rounded-lg min-w-[200px]">
+        <div className="text-white font-orbitron text-xl">
+          Money: ${gameState.money}
+        </div>
+        <div className="text-white font-orbitron text-xl">
+          Lives: {gameState.lives}
+        </div>
+        <div className="text-white font-orbitron text-xl">
+          Wave: {gameState.wave}
+        </div>
+        <div className="text-white font-orbitron text-xl">
+          {getTowerInfo(gameState.selectedTowerType).name}: ${getTowerInfo(gameState.selectedTowerType).cost}
+        </div>
+      </div>
+
+      {/* Canvas au centre */}
+      <div className="flex-shrink-0">
+        <canvas
+          ref={canvasRef}
+          className="border-2 border-slate-700"
+        />
+      </div>
+
+      {/* Boutons à droite */}
+      <div className="flex flex-col gap-2 bg-slate-800/80 p-4 rounded-lg min-w-[200px]">
         <div className="flex flex-col gap-2">
           <button
             onClick={togglePause}

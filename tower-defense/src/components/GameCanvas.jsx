@@ -9,6 +9,12 @@ const GameCanvas = ({ onGameOver }) => {
     isPaused: false,
     selectedTowerType: 'shooter'
   })
+  const gameRef = useRef({
+    enemies: [],
+    towers: [],
+    frameCount: 0,
+    hoveredCell: null
+  })
 
   class Grid {
     constructor(width, height) {
@@ -206,29 +212,24 @@ const GameCanvas = ({ onGameOver }) => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const grid = new Grid(8, 6)
-    let enemies = []
-    let towers = []
-    let frameCount = 0
     let gameLoop
-    let hoveredCell = null
-    let isGameRunning = true
 
     const spawnEnemy = () => {
       if (!gameState.isPaused) {
-        enemies.push(new Enemy(grid.path))
+        gameRef.current.enemies.push(new Enemy(grid.path))
       }
     }
 
     const updateGame = () => {
       if (gameState.isPaused) return
 
-      frameCount++
-      if (frameCount % 60 === 0) {
+      gameRef.current.frameCount++
+      if (gameRef.current.frameCount % 60 === 0) {
         spawnEnemy()
       }
 
       // Mise à jour des ennemis
-      enemies = enemies.filter(enemy => {
+      gameRef.current.enemies = gameRef.current.enemies.filter(enemy => {
         const reachedEnd = enemy.move()
         if (reachedEnd) {
           setGameState(prev => ({ ...prev, lives: prev.lives - 1 }))
@@ -241,8 +242,8 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       // Mise à jour des tours
-      towers.forEach(tower => {
-        tower.shoot(enemies)
+      gameRef.current.towers.forEach(tower => {
+        tower.shoot(gameRef.current.enemies)
         
         // Mise à jour des projectiles
         tower.projectiles = tower.projectiles.filter(projectile => {
@@ -250,7 +251,7 @@ const GameCanvas = ({ onGameOver }) => {
           if (hit) {
             if (tower.type === 'splash') {
               // Effet de splash
-              enemies.forEach(enemy => {
+              gameRef.current.enemies.forEach(enemy => {
                 const dx = enemy.x - projectile.target.x
                 const dy = enemy.y - projectile.target.y
                 const distance = Math.sqrt(dx * dx + dy * dy)
@@ -275,7 +276,7 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       // Suppression des ennemis morts
-      enemies = enemies.filter(enemy => enemy.health > 0)
+      gameRef.current.enemies = gameRef.current.enemies.filter(enemy => enemy.health > 0)
     }
 
     const render = () => {
@@ -305,13 +306,13 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       // Effet de survol
-      if (hoveredCell && grid.isBuildable(hoveredCell.x, hoveredCell.y)) {
+      if (gameRef.current.hoveredCell && grid.isBuildable(gameRef.current.hoveredCell.x, gameRef.current.hoveredCell.y)) {
         ctx.fillStyle = 'rgba(59, 130, 246, 0.3)'
-        ctx.fillRect(hoveredCell.x * grid.cellSize, hoveredCell.y * grid.cellSize, grid.cellSize, grid.cellSize)
+        ctx.fillRect(gameRef.current.hoveredCell.x * grid.cellSize, gameRef.current.hoveredCell.y * grid.cellSize, grid.cellSize, grid.cellSize)
       }
 
       // Dessiner les projectiles
-      towers.forEach(tower => {
+      gameRef.current.towers.forEach(tower => {
         tower.projectiles.forEach(projectile => {
           ctx.fillStyle = '#3b82f6'
           ctx.beginPath()
@@ -321,7 +322,7 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       // Dessiner les ennemis
-      enemies.forEach(enemy => {
+      gameRef.current.enemies.forEach(enemy => {
         ctx.fillStyle = '#ef4444'
         ctx.beginPath()
         ctx.arc(enemy.x + grid.cellSize / 2, enemy.y + grid.cellSize / 2, 30, 0, Math.PI * 2)
@@ -333,18 +334,38 @@ const GameCanvas = ({ onGameOver }) => {
       })
 
       // Dessiner les tours
-      towers.forEach(tower => {
+      gameRef.current.towers.forEach(tower => {
         // Zone d'effet
         ctx.strokeStyle = 'rgba(59, 130, 246, 0.2)'
         ctx.beginPath()
         ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, tower.stats.range, 0, Math.PI * 2)
         ctx.stroke()
 
-        // Tour
+        // Base de la tour
+        ctx.fillStyle = '#1e293b'
+        ctx.beginPath()
+        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 45, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Corps de la tour
         ctx.fillStyle = getTowerColor(tower.type)
         ctx.beginPath()
-        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 40, 0, Math.PI * 2)
+        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 35, 0, Math.PI * 2)
         ctx.fill()
+
+        // Sommet de la tour
+        ctx.fillStyle = '#e2e8f0'
+        ctx.beginPath()
+        ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 15, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Effet de tir
+        if (tower.cooldown === 0) {
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'
+          ctx.beginPath()
+          ctx.arc(tower.x + grid.cellSize / 2, tower.y + grid.cellSize / 2, 20, 0, Math.PI * 2)
+          ctx.fill()
+        }
       })
 
       // HUD
@@ -384,7 +405,7 @@ const GameCanvas = ({ onGameOver }) => {
       const y = e.clientY - rect.top
       const gridX = Math.floor(x / grid.cellSize)
       const gridY = Math.floor(y / grid.cellSize)
-      hoveredCell = { x: gridX, y: gridY }
+      gameRef.current.hoveredCell = { x: gridX, y: gridY }
     }
 
     const handleClick = (e) => {
@@ -398,14 +419,14 @@ const GameCanvas = ({ onGameOver }) => {
 
       if (!grid.isBuildable(gridX, gridY)) return
 
-      const towerExists = towers.some(tower => 
+      const towerExists = gameRef.current.towers.some(tower => 
         tower.x === gridX * grid.cellSize && tower.y === gridY * grid.cellSize
       )
       if (towerExists) return
 
       const towerInfo = getTowerInfo(gameState.selectedTowerType)
       if (gameState.money >= towerInfo.cost) {
-        towers.push(new Tower(gridX * grid.cellSize, gridY * grid.cellSize, gameState.selectedTowerType))
+        gameRef.current.towers.push(new Tower(gridX * grid.cellSize, gridY * grid.cellSize, gameState.selectedTowerType))
         setGameState(prev => ({ ...prev, money: prev.money - towerInfo.cost }))
       }
     }
@@ -413,13 +434,6 @@ const GameCanvas = ({ onGameOver }) => {
     canvas.addEventListener('mousemove', handleMouseMove)
     canvas.addEventListener('click', handleClick)
     gameStep()
-
-    // Réinitialiser le jeu quand gameState change
-    if (gameState.wave === 1 && gameState.lives === 10 && gameState.money === 100) {
-      enemies = []
-      towers = []
-      frameCount = 0
-    }
 
     return () => {
       cancelAnimationFrame(gameLoop)
@@ -466,6 +480,12 @@ const GameCanvas = ({ onGameOver }) => {
       isPaused: false,
       selectedTowerType: 'shooter'
     })
+    gameRef.current = {
+      enemies: [],
+      towers: [],
+      frameCount: 0,
+      hoveredCell: null
+    }
   }
 
   const selectTowerType = (type) => {

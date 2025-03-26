@@ -414,6 +414,13 @@ const GameCanvas = ({ onGameOver }) => {
     canvas.addEventListener('click', handleClick)
     gameStep()
 
+    // Réinitialiser le jeu quand gameState change
+    if (gameState.wave === 1 && gameState.lives === 10 && gameState.money === 100) {
+      enemies = []
+      towers = []
+      frameCount = 0
+    }
+
     return () => {
       cancelAnimationFrame(gameLoop)
       canvas.removeEventListener('mousemove', handleMouseMove)
@@ -451,6 +458,16 @@ const GameCanvas = ({ onGameOver }) => {
     setGameState(prev => ({ ...prev, isPaused: !prev.isPaused }))
   }
 
+  const resetGame = () => {
+    setGameState({
+      money: 100,
+      lives: 10,
+      wave: 1,
+      isPaused: false,
+      selectedTowerType: 'shooter'
+    })
+  }
+
   const selectTowerType = (type) => {
     if (!gameState.isPaused) {
       setGameState(prev => ({ ...prev, selectedTowerType: type }))
@@ -465,50 +482,61 @@ const GameCanvas = ({ onGameOver }) => {
         height={600}
         className="border-2 border-slate-700"
       />
-      <div className="absolute top-4 right-4 flex flex-col gap-2">
-        <button
-          onClick={togglePause}
-          className={`px-4 py-2 rounded ${
-            gameState.isPaused
-              ? 'bg-green-600 text-white'
-              : 'bg-slate-700 text-white hover:bg-slate-600'
-          }`}
-        >
-          {gameState.isPaused ? 'Resume' : 'Pause'}
-        </button>
-        <button
-          onClick={() => selectTowerType('shooter')}
-          className={`px-4 py-2 rounded ${
-            gameState.selectedTowerType === 'shooter'
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-700 text-white hover:bg-slate-600'
-          } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={gameState.isPaused}
-        >
-          Shooter ($50)
-        </button>
-        <button
-          onClick={() => selectTowerType('slow')}
-          className={`px-4 py-2 rounded ${
-            gameState.selectedTowerType === 'slow'
-              ? 'bg-purple-600 text-white'
-              : 'bg-slate-700 text-white hover:bg-slate-600'
-          } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={gameState.isPaused}
-        >
-          Slow ($75)
-        </button>
-        <button
-          onClick={() => selectTowerType('splash')}
-          className={`px-4 py-2 rounded ${
-            gameState.selectedTowerType === 'splash'
-              ? 'bg-orange-600 text-white'
-              : 'bg-slate-700 text-white hover:bg-slate-600'
-          } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={gameState.isPaused}
-        >
-          Splash ($100)
-        </button>
+      <div className="absolute top-4 right-4 flex flex-col gap-2 bg-slate-800/80 p-4 rounded-lg">
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={togglePause}
+            className={`px-4 py-2 rounded ${
+              gameState.isPaused
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            }`}
+          >
+            {gameState.isPaused ? 'Resume' : 'Pause'}
+          </button>
+          <button
+            onClick={resetGame}
+            className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+          >
+            Reset Game
+          </button>
+        </div>
+        <div className="border-t border-slate-600 my-2"></div>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => selectTowerType('shooter')}
+            className={`px-4 py-2 rounded ${
+              gameState.selectedTowerType === 'shooter'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={gameState.isPaused}
+          >
+            Shooter ($50)
+          </button>
+          <button
+            onClick={() => selectTowerType('slow')}
+            className={`px-4 py-2 rounded ${
+              gameState.selectedTowerType === 'slow'
+                ? 'bg-purple-600 text-white'
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={gameState.isPaused}
+          >
+            Slow ($75)
+          </button>
+          <button
+            onClick={() => selectTowerType('splash')}
+            className={`px-4 py-2 rounded ${
+              gameState.selectedTowerType === 'splash'
+                ? 'bg-orange-600 text-white'
+                : 'bg-slate-700 text-white hover:bg-slate-600'
+            } ${gameState.isPaused ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={gameState.isPaused}
+          >
+            Splash ($100)
+          </button>
+        </div>
       </div>
     </div>
   )

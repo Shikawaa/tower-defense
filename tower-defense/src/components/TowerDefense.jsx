@@ -26,13 +26,13 @@ export default function TowerDefense() {
             exit={{ opacity: 0, y: -20 }}
             className="text-center"
           >
-            <h1 className="text-4xl font-bold mb-8 text-blue-500">Tower Defense</h1>
+            <h1 className="text-4xl font-bold mb-8 text-blue-500">Best Tower Defense Game in the World</h1>
             {!isGameOver ? (
               <button
                 onClick={startGame}
                 className="px-8 py-4 bg-blue-600 text-white rounded-lg text-xl font-bold hover:bg-blue-700 transition-colors"
               >
-                Commencer la partie
+                Start Game
               </button>
             ) : (
               <div>

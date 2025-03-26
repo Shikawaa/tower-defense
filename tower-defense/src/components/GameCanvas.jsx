@@ -15,6 +15,7 @@ const GameCanvas = ({ onGameOver }) => {
     frameCount: 0,
     hoveredCell: null
   })
+  const [gameOver, setGameOver] = useState(false)
 
   class Grid {
     constructor(width, height, cellSize) {
@@ -27,25 +28,48 @@ const GameCanvas = ({ onGameOver }) => {
 
     createPath() {
       const path = []
-      // Premier chemin (en haut)
-      for (let i = 0; i < 12; i++) {
-        path.push({ x: i, y: 2 })
+      
+      // Premier chemin (entrée gauche)
+      // Départ en haut à gauche
+      for (let i = 0; i < 4; i++) {
+        path.push({ x: i, y: 0 })
       }
-      for (let i = 2; i < 6; i++) {
-        path.push({ x: 11, y: i })
+      // Descente
+      for (let i = 0; i < 6; i++) {
+        path.push({ x: 3, y: i })
       }
-      for (let i = 11; i >= 0; i--) {
+      // Traversée vers la droite
+      for (let i = 3; i < 9; i++) {
         path.push({ x: i, y: 5 })
       }
-
-      // Deuxième chemin (en bas)
-      for (let i = 0; i < 12; i++) {
-        path.push({ x: i, y: 8 })
+      // Descente
+      for (let i = 5; i < 12; i++) {
+        path.push({ x: 8, y: i })
       }
+      // Traversée vers la droite jusqu'à la sortie
       for (let i = 8; i < 12; i++) {
-        path.push({ x: 11, y: i })
+        path.push({ x: i, y: 11 })
       }
-      for (let i = 11; i >= 0; i--) {
+
+      // Deuxième chemin (entrée droite)
+      // Départ en haut à droite
+      for (let i = 11; i > 7; i--) {
+        path.push({ x: i, y: 0 })
+      }
+      // Descente
+      for (let i = 0; i < 6; i++) {
+        path.push({ x: 8, y: i })
+      }
+      // Traversée vers la gauche
+      for (let i = 8; i > 2; i--) {
+        path.push({ x: i, y: 5 })
+      }
+      // Descente
+      for (let i = 5; i < 12; i++) {
+        path.push({ x: 3, y: i })
+      }
+      // Traversée vers la gauche jusqu'à la sortie
+      for (let i = 3; i >= 0; i--) {
         path.push({ x: i, y: 11 })
       }
 
@@ -613,11 +637,24 @@ const GameCanvas = ({ onGameOver }) => {
       </div>
 
       {/* Canvas au centre */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 relative">
         <canvas
           ref={canvasRef}
           className="border-2 border-slate-700"
         />
+        {/* Écran de game over */}
+        {gameOver && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 border-2 border-slate-700">
+            <h1 className="text-4xl font-orbitron text-white mb-4">Game Over</h1>
+            <p className="text-xl text-white mb-8">Score: {gameState.wave}</p>
+            <button
+              onClick={resetGame}
+              className="px-8 py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 font-orbitron text-xl"
+            >
+              Play Again
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Boutons à droite */}
